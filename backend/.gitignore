@@ -3,8 +3,8 @@ node_modules/
 .env.local
 dist/
 coverage/
-
 .agents/
 .claude/
 .cursor/
 .devin/
+generated/
