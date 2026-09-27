@@ -10,6 +10,7 @@ const customerRoutes = require("./routes/customerRoutes");
 const enquiryRoutes = require("./routes/enquiryRoutes");
 const quotationRoutes = require("./routes/quotationRoutes");
 const salesOrderRoutes = require("./routes/salesOrderRoutes");
+const dispatchRoutes = require("./routes/dispatchRoutes");
 
 const app = express();
 
@@ -29,6 +30,8 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/enquiries", enquiryRoutes);
 app.use("/api/quotations", quotationRoutes);
 app.use("/api/sales-orders", salesOrderRoutes);
+app.use("/api/dispatches", dispatchRoutes);
+
 
 const PORT = process.env.PORT || 5000;
 
