@@ -4,6 +4,7 @@ const {
   createSalesOrder,
   getSalesOrders,
   getSalesOrderById,
+  confirmSalesOrder,
 } = require("../controllers/salesOrderController");
 
 const {
@@ -19,7 +20,12 @@ router.post(
   requireRole("ADMIN", "SALES_USER"),
   createSalesOrder
 );
-
+router.post(
+  "/:id/confirm",
+  authenticateToken,
+  requireRole("ADMIN"),
+  confirmSalesOrder
+);
 router.get(
   "/",
   authenticateToken,

@@ -191,10 +191,152 @@ const getSalesOrderById = async (req, res) => {
     });
   }
 };
+const confirmSalesOrder = async (req, res) => {
+  try {
+    const salesOrderId = Number(req.params.id);
 
+    if (Number.isNaN(salesOrderId)) {
+      return res.status(400).json({
+        message: "Invalid Sales Order ID",
+      });
+    }
+
+    const salesOrder = await prisma.salesOrder.findUnique({
+      where: {
+        id: salesOrderId,
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    if (!salesOrder) {
+      return res.status(404).json({
+        message: "Sales Order not found",
+      });
+    }
+
+    if (salesOrder.status !== "PENDING") {
+      return res.status(400).json({
+        message: "Only a PENDING Sales Order can be confirmed",
+      });
+    }
+
+    if (!salesOrder.items || salesOrder.items.length === 0) {
+      return res.status(400).json({
+        message: "Sales Order has no items",
+      });
+    }
+
+    const confirmedOrder = await prisma.$transaction(async (tx) => {
+      // Sort product IDs so concurrent transactions
+      // acquire locks in the same order.
+      const items = [...salesOrder.items].sort(
+        (a, b) => a.productId - b.productId
+      );
+
+      const inventories = [];
+
+      // Lock every inventory row before checking availability.
+      for (const item of items) {
+        const inventoryRows = await tx.$queryRaw`
+          SELECT
+            id,
+            "productId",
+            "physicalQty",
+            "reservedQty"
+          FROM "Inventory"
+          WHERE "productId" = ${item.productId}
+          FOR UPDATE
+        `;
+
+        if (inventoryRows.length === 0) {
+          throw new Error(
+            `Inventory not found for product ID ${item.productId}`
+          );
+        }
+
+        inventories.push({
+          item,
+          inventory: inventoryRows[0],
+        });
+      }
+
+      // Check availability while rows are locked.
+      for (const { item, inventory } of inventories) {
+        const availableQty =
+          inventory.physicalQty - inventory.reservedQty;
+
+        if (item.quantity > availableQty) {
+          const error = new Error(
+            `Insufficient inventory for product ID ${item.productId}. Available: ${availableQty}, Requested: ${item.quantity}`
+          );
+
+          error.statusCode = 400;
+
+          throw error;
+        }
+      }
+
+      // Reserve inventory.
+      for (const { item, inventory } of inventories) {
+        await tx.inventory.update({
+          where: {
+            id: inventory.id,
+          },
+          data: {
+            reservedQty: {
+              increment: item.quantity,
+            },
+          },
+        });
+      }
+
+      // Confirm the Sales Order.
+      const updatedOrder = await tx.salesOrder.update({
+        where: {
+          id: salesOrderId,
+        },
+        data: {
+          status: "CONFIRMED",
+          confirmedAt: new Date(),
+        },
+        include: {
+          customer: true,
+          quotation: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      });
+
+      return updatedOrder;
+    });
+
+    res.json({
+      message: "Sales Order confirmed and inventory reserved successfully",
+      salesOrder: confirmedOrder,
+    });
+  } catch (error) {
+    console.error(error);
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        message: error.message,
+      });
+    }
+
+    res.status(500).json({
+      message: "Failed to confirm Sales Order",
+    });
+  }
+};
 
 module.exports = {
   createSalesOrder,
   getSalesOrders,
   getSalesOrderById,
+  confirmSalesOrder,
 };
