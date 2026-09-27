@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "start": "tsx server.js",
-  "dev": "nodemon --exec tsx server.js"
-},
+    "start": "tsx server.js",
+    "dev": "nodemon --exec tsx server.js",
+"test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -22,8 +23,10 @@
     "pg": "^8.23.0"
   },
   "devDependencies": {
+    "jest": "^30.5.2",
     "nodemon": "^3.1.14",
     "prisma": "^7.10.0",
+    "supertest": "^7.3.0",
     "tsx": "^4.23.15"
   }
 }
